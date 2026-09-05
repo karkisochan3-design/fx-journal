@@ -1,20 +1,20 @@
 # ─────────────────────────────────────────────────────────────
-# FX Journal — Render Blueprint  (production, data persists)
+# FX Journal — Render Blueprint  ($0 tier, DEMO ONLY)
 #
-# Your trades live in a SQLite file, so the service needs a
-# persistent disk. Disks require a paid plan (Starter = $7/mo,
-# disk = $0.25/GB/mo). Worth it: without a disk, Render's
-# filesystem is wiped on every deploy and restart.
+# ⚠️  The free tier has an ephemeral filesystem and cannot attach
+#     a disk. Every deploy, restart and 15-minute spin-down WIPES
+#     your trades. Use this to try the app, not to keep a journal.
 #
-# Deploy:  ./scripts/deploy-render.sh
-# Docs:    https://render.com/docs/blueprint-spec
+#     For real data use render.yaml (Starter plan + 1GB disk).
+#
+# Deploy:  ./scripts/deploy-render.sh --free
 # ─────────────────────────────────────────────────────────────
 services:
   - type: web
-    name: fx-journal
+    name: fx-journal-demo
     runtime: node
-    plan: starter                 # minimum plan that allows a disk
-    region: oregon                # frankfurt | singapore | ohio | virginia
+    plan: free
+    region: oregon
     branch: main
     healthCheckPath: /api/health
 
@@ -24,12 +24,5 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: DATA_DIR
-        value: /var/data          # must match disk.mountPath
       - key: VITE_SEED_DEMO
-        value: "false"            # start with an empty journal, not demo trades
-
-    disk:
-      name: fx-journal-data
-      mountPath: /var/data
-      sizeGB: 1                   # can grow later, never shrink
+        value: "true"             # demo data reloads after each wipe
