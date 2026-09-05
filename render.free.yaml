@@ -1,0 +1,28 @@
+# ─────────────────────────────────────────────────────────────
+# FX Journal — Render Blueprint  ($0 tier, DEMO ONLY)
+#
+# ⚠️  The free tier has an ephemeral filesystem and cannot attach
+#     a disk. Every deploy, restart and 15-minute spin-down WIPES
+#     your trades. Use this to try the app, not to keep a journal.
+#
+#     For real data use render.yaml (Starter plan + 1GB disk).
+#
+# Deploy:  ./scripts/deploy-render.sh --free
+# ─────────────────────────────────────────────────────────────
+services:
+  - type: web
+    name: fx-journal-demo
+    runtime: node
+    plan: free
+    region: oregon
+    branch: main
+    healthCheckPath: /api/health
+
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: VITE_SEED_DEMO
+        value: "true"             # demo data reloads after each wipe

@@ -1,0 +1,93 @@
+# ─────────────────────────────────────────────────────────────
+# FX Journal — test on every push/PR, deploy from GitHub
+#
+# Two ways to use this:
+#
+#  1. Auto-deploy (default, simplest)
+#     Render watches your branch and deploys on every push.
+#     This workflow then only runs the tests. The deploy job
+#     below stays idle because RENDER_DEPLOY_HOOK_URL is unset.
+#
+#  2. Deploy only when tests pass (recommended for real data)
+#     • Render dashboard → your service → Settings → Auto-Deploy → Off
+#     • Settings → Deploy Hooks → copy the hook URL
+#     • GitHub repo → Settings → Secrets and variables → Actions
+#       → New repository secret: RENDER_DEPLOY_HOOK_URL
+#     Now every push to main runs the tests, and only deploys if
+#     they pass. Never ship a broken trade-log again.
+# ─────────────────────────────────────────────────────────────
+name: Test & Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Build & test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build the client
+        run: npm run build
+
+      - name: Start the API
+        env:
+          PORT: 3001
+          DATA_DIR: ./data
+        run: |
+          npm start &
+          for i in $(seq 1 30); do
+            if curl -sf "http://127.0.0.1:${PORT}/api/health" > /dev/null; then
+              echo "API up on ${PORT} after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::API failed to start on ${PORT}"
+          exit 1
+
+      # trade maths, CSV round-trip, API CRUD
+      - name: Unit + API tests
+        run: npm test
+
+      # renders every screen to catch runtime errors
+      - name: Render smoke tests
+        run: npm run test:render
+
+  deploy:
+    name: Deploy to Render
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+
+    steps:
+      - name: Trigger Render deploy
+        if: env.HOOK != ''
+        run: |
+          echo "Deploying via hook…"
+          curl -fsS -X POST "$HOOK"
+          echo
+          echo "Deploy triggered. Watch it: render logs $RENDER_SERVICE_ID"
+
+      - name: No hook configured
+        if: env.HOOK == ''
+        run: |
+          echo "RENDER_DEPLOY_HOOK_URL is not set — skipping."
+          echo "Render's built-in auto-deploy handles this push."
+          echo "To gate deploys on these tests instead, see the comment at the"
+          echo "top of .github/workflows/render.yml."
