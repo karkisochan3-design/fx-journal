@@ -24,7 +24,7 @@ RUN npm ci --omit=dev \
 
 COPY --from=build /app/dist ./dist
 COPY server ./server
-COPY src ./src              # server/index.js loads src/lib/calc.mjs at runtime
+COPY src ./src              
 
 RUN mkdir -p /var/data
 VOLUME /var/data
